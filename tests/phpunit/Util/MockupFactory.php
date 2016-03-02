@@ -2,7 +2,7 @@
 /**
  * This file is part of the MediaWiki skin Chameleon.
  *
- * @copyright 2013 - 2014, Stephan Gambke
+ * @copyright 2013 - 2015, Stephan Gambke
  * @license   GNU General Public License, version 3 (or any later version)
  *
  * The Chameleon skin is free software: you can redistribute it and/or modify
@@ -39,6 +39,8 @@ class MockupFactory {
 	private $configuration = array(
 		'UserIsLoggedIn'      => false,
 		'UserNewMessageLinks' => array(),
+		'UserEffectiveGroups' => array( '*' ),
+		'UserRights' => array(),
 	);
 
 	public function __construct( \PHPUnit_Framework_TestCase $testCase ) {
@@ -131,6 +133,7 @@ class MockupFactory {
 
 			// Required by Logo
 			'logopath'           => 'foo',
+			'sitename'           => 'bar',
 
 			// Required by NavMenu
 			'nav_urls'           => array(
@@ -222,8 +225,9 @@ class MockupFactory {
 	protected function getSkinStub() {
 
 		$title = \Title::newFromText( 'FOO' );
+		$request = new \FauxRequest();
 
-		$skin = $this->testCase->getMockBuilder( '\Skin' )
+		$skin = $this->testCase->getMockBuilder( '\SkinChameleon' )
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -234,6 +238,10 @@ class MockupFactory {
 		$skin->expects( $this->testCase->any() )
 			->method( 'getUser' )
 			->will( $this->testCase->returnValue( $this->getUserStub() ) );
+
+		$skin->expects( $this->testCase->any() )
+			->method( 'getRequest' )
+			->will( $this->testCase->returnValue( $request ) );
 
 		return $skin;
 	}
@@ -266,8 +274,16 @@ class MockupFactory {
 			->will( $this->testCase->returnValue( $this->get( 'UserNewMessageLinks', 0 ) ) );
 
 		$user->expects( $this->testCase->any() )
+			->method( 'getEffectiveGroups' )
+			->will( $this->testCase->returnValue( $this->get( 'UserEffectiveGroups', 0 ) ) );
+
+		$user->expects( $this->testCase->any() )
 			->method( 'getTalkPage' )
 			->will( $this->testCase->returnValue( $this->getTitleStub() ) );
+
+		$user->expects( $this->testCase->any() )
+			->method( 'getRights' )
+			->will( $this->testCase->returnValue( $this->get( 'UserRights', array() ) ) );
 
 		return $user;
 

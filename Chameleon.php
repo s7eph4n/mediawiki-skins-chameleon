@@ -14,7 +14,7 @@
  *
  * This file is part of the MediaWiki skin Chameleon.
  *
- * @copyright 2013 - 2014, Stephan Gambke
+ * @copyright 2013 - 2016, Stephan Gambke
  * @license   GNU General Public License, version 3 (or any later version)
  *
  * The Chameleon skin is free software: you can redistribute it and/or modify
@@ -47,14 +47,14 @@ call_user_func( function () {
 	}
 
 	// define the skin's version
-	define( 'CHAMELEON_VERSION', '1.0.1-dev' );
+	define( 'CHAMELEON_VERSION', '1.3-alpha' );
 
 	// set credits
 	$GLOBALS[ 'wgExtensionCredits' ][ 'skin' ][ ] = array(
 		'path'           => __FILE__,
 		'name'           => 'Chameleon',
 		'descriptionmsg' => 'chameleon-desc',
-		'author'         => '[http://www.mediawiki.org/wiki/User:F.trott Stephan Gambke]',
+		'author'         => '[https://www.mediawiki.org/wiki/User:F.trott Stephan Gambke]',
 		'url'            => 'https://www.mediawiki.org/wiki/Skin:Chameleon',
 		'version'        => CHAMELEON_VERSION,
 		'license-name'   => 'GPLv3+',
@@ -65,7 +65,7 @@ call_user_func( function () {
 
 	// register message file for i18n
 	$GLOBALS[ 'wgExtensionMessagesFiles' ][ 'Chameleon' ] = __DIR__ . '/Chameleon.i18n.php';
-    $GLOBALS[ 'wgMessagesDirs' ][ 'Chameleon' ] = __DIR__ . '/i18n';
+	$GLOBALS[ 'wgMessagesDirs' ][ 'Chameleon' ] = __DIR__ . '/resources/i18n';
 
 	/**
 	 * Using callbacks for hook registration
@@ -79,13 +79,14 @@ call_user_func( function () {
 	 */
 
 	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SetupAfterCache
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/BeforeInitialize
 	 */
 	$GLOBALS[ 'wgHooks' ][ 'SetupAfterCache' ][ ] = function() {
 
 		$setupAfterCache = new \Skins\Chameleon\Hooks\SetupAfterCache(
 			\Bootstrap\BootstrapManager::getInstance(),
-			$GLOBALS
+			$GLOBALS,
+			$GLOBALS['wgRequest']
 		);
 
 		$setupAfterCache->process();

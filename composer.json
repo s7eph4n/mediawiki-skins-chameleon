@@ -10,7 +10,7 @@
 		"Bootstrap"
 	],
 	"homepage"   : "https://www.mediawiki.org/wiki/Skin:Chameleon",
-	"license"    : "GPLv3+",
+	"license"    : "GPL-3.0+",
 	"authors"    : [
 		{
 			"name" : "Stephan Gambke",
@@ -30,7 +30,7 @@
 		"ext-dom"            : "*",
 		"ext-filter"         : "*",
 		"composer/installers": ">1.0.12",
-		"mediawiki/bootstrap": "~1.0"
+		"mediawiki/bootstrap": "~1.1"
 	},
 	"autoload"   : {
 		"files": [ "Chameleon.php", "src/SkinChameleon.php" ],

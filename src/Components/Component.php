@@ -26,6 +26,7 @@
 
 namespace Skins\Chameleon\Components;
 
+use SkinChameleon;
 use Skins\Chameleon\ChameleonTemplate;
 
 /**
@@ -56,7 +57,7 @@ abstract class Component {
 		$this->mDomElement   = $domElement;
 
 		if ( $domElement !== null ) {
-			$this->setClasses( $domElement->getAttribute( 'class' ) );
+			$this->addClasses( $domElement->getAttribute( 'class' ) );
 		}
 	}
 
@@ -119,6 +120,15 @@ abstract class Component {
 	}
 
 	/**
+	 * @since 1.1
+	 * @return SkinChameleon
+	 */
+	public function getSkin() {
+
+		return $this->mSkinTemplate->getSkin();
+	}
+
+	/**
 	 * Returns the current indentation level
 	 *
 	 * @return int
@@ -169,7 +179,7 @@ abstract class Component {
 	abstract public function getHtml();
 
 	/**
-	 * @return array the resource loader modules needed by this component
+	 * @return string[] the resource loader modules needed by this component
 	 */
 	public function getResourceLoaderModules() {
 		return array();
@@ -180,12 +190,16 @@ abstract class Component {
 	 * Inserts a new line and a number of tabs according to the new indentation level.
 	 *
 	 * @param int $indent
-	 *
 	 * @return string
+	 * @throws \MWException
 	 */
 	protected function indent( $indent = 0 ) {
 
 		$this->mIndent += (int) $indent;
+
+		if ( $this->mIndent < 0 ) {
+			throw new \MWException('Attempted HTML indentation of ' .$this->mIndent );
+		}
 
 		return "\n" . str_repeat( "\t", $this->mIndent );
 	}

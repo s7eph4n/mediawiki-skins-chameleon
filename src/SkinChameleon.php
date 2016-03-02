@@ -50,7 +50,11 @@ class SkinChameleon extends SkinTemplate {
 		$this->output = $out;
 
 		// load Bootstrap styles
-		$out->addModuleStyles( 'ext.bootstrap.styles' );
+		$out->addModuleStyles(
+			array(
+				'ext.bootstrap.styles'
+			)
+		);
 	}
 
 	/**
@@ -89,7 +93,7 @@ class SkinChameleon extends SkinTemplate {
 	 * @return string
 	 */
 	public function getPageClasses( $title ) {
-		$layoutName = Sanitizer::encodeAttribute( 'layout-' . basename( $GLOBALS['egChameleonLayoutFile'], '.xml' ) );
+		$layoutName = Sanitizer::escapeClass( 'layout-' . basename( $GLOBALS['egChameleonLayoutFile'], '.xml' ) );
 		return implode( ' ', array( parent::getPageClasses( $title ), $layoutName ) );
 	}
 }

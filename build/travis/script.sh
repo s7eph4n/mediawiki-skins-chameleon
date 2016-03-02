@@ -3,7 +3,7 @@
 #####
 # This file is part of the MediaWiki skin Chameleon.
 #
-# @copyright 2013 - 2014, Stephan Gambke, mwjames
+# @copyright 2013 - 2016, Stephan Gambke, mwjames
 # @license   GNU General Public License, version 3 (or any later version)
 #
 # The Chameleon skin is free software: you can redistribute it and/or modify
@@ -24,7 +24,10 @@
 # @ingroup Skins
 #####
 
-set -x
+set -x  # display commands and their expanded arguments
+set -u  # treat unset variables as an error when performing parameter expansion
+set -o pipefail  # pipelines exit with last (rightmost) non-zero exit code
+set -e  # exit immediately if a command exits with an error
 
 originalDirectory=$(pwd)
 
@@ -33,9 +36,15 @@ function installMediaWiki {
 
 	wget https://github.com/wikimedia/mediawiki/archive/$MW.tar.gz
 	tar -zxf $MW.tar.gz
-	mv mediawiki-$MW phase3
+	mv mediawiki-$MW mw
 
-	cd phase3
+	cd mw
+
+	## MW 1.25+ installs packages using composer
+	if [ -f composer.json ]
+	then
+		composer install --prefer-source
+	fi
 
 	mysql -e 'create database its_a_mw;'
 	php maintenance/install.php --dbtype $DBTYPE --dbuser root --dbname its_a_mw --dbpath $(pwd) --pass nyan TravisWiki admin
@@ -43,11 +52,13 @@ function installMediaWiki {
 
 function installSkinViaComposerOnMediaWikiRoot {
 
-	# dev is only needed for as long no stable release is available
-	composer init --stability dev
+	if [ ! -f composer.json ]
+	then
+		composer init
+	fi
 
-	composer require 'phpunit/phpunit=~4.0' --prefer-source
-	composer require 'mediawiki/chameleon-skin=@dev' --prefer-source
+	composer remove --dev --update-with-dependencies 'phpunit/phpunit'
+	composer require 'phpunit/phpunit=~4.0' 'mediawiki/chameleon-skin=@dev' --prefer-source
 
 	cd skins
 	cd chameleon
@@ -78,8 +89,22 @@ function installSkinViaComposerOnMediaWikiRoot {
 	php maintenance/update.php --quick
 }
 
+function uploadCoverageReport {
+	wget https://scrutinizer-ci.com/ocular.phar
+	php ocular.phar code-coverage:upload --repository='g/wikimedia/mediawiki-skins-chameleon' --format=php-clover coverage.clover
+}
+
+composer self-update
+
 installMediaWiki
 installSkinViaComposerOnMediaWikiRoot
 
-cd tests/phpunit
-php phpunit.php --group skins-chameleon -c ../../skins/chameleon/phpunit.xml.dist
+cd skins/chameleon
+
+if [ "$MW" == "master" ]
+then
+	php ../../tests/phpunit/phpunit.php --group skins-chameleon -c phpunit.xml.dist --coverage-clover=coverage.clover
+	uploadCoverageReport
+else
+	php ../../tests/phpunit/phpunit.php --group skins-chameleon -c phpunit.xml.dist
+fi

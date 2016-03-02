@@ -53,7 +53,7 @@ class Structure extends Component {
 	}
 
 	/**
-	 * @return array the resource loader modules needed by this component
+	 * @return string[] the resource loader modules needed by this component
 	 */
 	public function getResourceLoaderModules() {
 		$modules = array();
@@ -76,7 +76,7 @@ class Structure extends Component {
 
 			$domElement = $this->getDomElement();
 
-			if ( is_a( $domElement, 'DomElement' ) ) {
+			if ( $domElement !== null && is_a( $domElement, 'DomElement' ) ) {
 
 				$children = $this->getDomElement()->childNodes;
 

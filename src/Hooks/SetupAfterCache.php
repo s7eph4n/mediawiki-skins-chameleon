@@ -1,10 +1,10 @@
 <?php
 /**
- * File containing the SetupAfterCache class
+ * File containing the BeforeInitialize class
  *
  * This file is part of the MediaWiki skin Chameleon.
  *
- * @copyright 2013 - 2014, Stephan Gambke, mwjames
+ * @copyright 2013 - 2016, Stephan Gambke, mwjames
  * @license   GNU General Public License, version 3 (or any later version)
  *
  * The Chameleon skin is free software: you can redistribute it and/or modify
@@ -43,16 +43,19 @@ class SetupAfterCache {
 
 	protected $bootstrapManager = null;
 	protected $configuration = array();
+	protected $request;
 
 	/**
 	 * @since  1.0
 	 *
 	 * @param BootstrapManager $bootstrapManager
 	 * @param array $configuration
+	 * @param \WebRequest $request
 	 */
-	public function __construct( BootstrapManager $bootstrapManager, array &$configuration ) {
+	public function __construct( BootstrapManager $bootstrapManager, array &$configuration, \WebRequest $request ) {
 		$this->bootstrapManager = $bootstrapManager;
 		$this->configuration = &$configuration;
+		$this->request = $request;
 	}
 
 	/**
@@ -61,6 +64,8 @@ class SetupAfterCache {
 	 * @return self
 	 */
 	public function process() {
+
+		$this->setInstallPaths();
 		$this->addLateSettings();
 		$this->registerCommonBootstrapModules();
 		$this->registerExternalLessModules();
@@ -81,59 +86,43 @@ class SetupAfterCache {
 		}
 	}
 
+	/**
+	 * Set local and remote base path of the Chameleon skin
+	 */
+	protected function setInstallPaths() {
+
+		$this->configuration[ 'chameleonLocalPath' ] = $this->configuration['wgStyleDirectory'] . '/chameleon';
+		$this->configuration[ 'chameleonRemotePath' ] = $this->configuration['wgStylePath'] . '/chameleon';
+	}
+
 	protected function addLateSettings() {
 
-		// if Visual Editor is installed and there is a setting to enable or disable it
-		if ( $this->hasConfiguration( 'wgVisualEditorSupportedSkins' ) && $this->hasConfiguration( 'egChameleonEnableVisualEditor' ) ) {
-
-			// if VE should be enabled
-			if ( $this->configuration[ 'egChameleonEnableVisualEditor' ] === true ) {
-
-				// if Chameleon is not yet in the list of VE-enabled skins
-				if ( !in_array( 'chameleon', $this->configuration[ 'wgVisualEditorSupportedSkins' ] ) ) {
-					$this->configuration[ 'wgVisualEditorSupportedSkins' ][ ] = 'chameleon';
-				}
-
-			} else {
-				// remove all entries of Chameleon from the list of VE-enabled skins
-				$this->configuration[ 'wgVisualEditorSupportedSkins' ] = array_diff(
-					$this->configuration[ 'wgVisualEditorSupportedSkins' ],
-					array( 'chameleon' )
-				);
-			}
-		}
-
-		$this->configuration[ 'wgResourceModules' ][ 'skin.chameleon.jquery-sticky' ] = array(
-			'localBasePath' => $this->configuration[ 'wgStyleDirectory' ] . implode( DIRECTORY_SEPARATOR, array( '', 'chameleon', 'resources' ) ),
-			'remoteBasePath' => $this->configuration[ 'wgScriptPath' ] . '/skins/chameleon/resources',
-			'group' => 'skin.chameleon',
-			'skinScripts' => array( 'chameleon' => array( 'jquery-sticky/jquery.sticky.js', 'Components/Modifications/sticky.js' ) )
-		);
-
+		$this->addChameleonToVisualEditorSupportedSkins();
+		$this->addResourceModules();
+		$this->setLayoutFile();
 	}
 
 	protected function registerCommonBootstrapModules() {
-
-		// Should we check for
-		// $this->isReadableFile( $this->configuration['wgStyleDirectory'] . '/chameleon/styles/' . 'screen.less' )
 
 		$this->bootstrapManager->addAllBootstrapModules();
 
 		if ( file_exists( $this->configuration[ 'wgStyleDirectory' ] . '/common/shared.css' ) ) { // MW < 1.24
 			$this->bootstrapManager->addExternalModule(
-				$this->configuration[ 'wgStyleDirectory' ] . '/common/shared.css'
+				$this->configuration[ 'wgStyleDirectory' ] . '/common/shared.css',
+				$this->configuration[ 'wgStylePath' ] . '/common/'
 			);
 		} else {
 			if ( file_exists( $this->configuration[ 'IP' ] . '/resources/src/mediawiki.legacy/shared.css' ) ) { // MW >= 1.24
 				$this->bootstrapManager->addExternalModule(
-					$this->configuration[ 'IP' ] . '/resources/src/mediawiki.legacy/shared.css'
+					$this->configuration[ 'IP' ] . '/resources/src/mediawiki.legacy/shared.css',
+					$this->configuration[ 'wgScriptPath' ] . '/resources/src/mediawiki.legacy/'
 				);
 			}
 		}
 
 		$this->bootstrapManager->addExternalModule(
-			$this->configuration[ 'wgStyleDirectory' ] . '/chameleon/styles/' . 'core.less',
-			$this->configuration[ 'wgStylePath' ] . '/chameleon/styles/'
+			$this->configuration[ 'chameleonLocalPath' ] . '/resources/styles/core.less',
+			$this->configuration[ 'chameleonRemotePath' ] . '/resources/styles/'
 		);
 	}
 
@@ -163,14 +152,27 @@ class SetupAfterCache {
 		}
 	}
 
+	/**
+	 * @param $id
+	 * @return bool
+	 */
 	private function hasConfiguration( $id ) {
 		return isset( $this->configuration[ $id ] );
 	}
 
+	/**
+	 * @param string $id
+	 * @return bool
+	 */
 	private function hasConfigurationOfTypeArray( $id ) {
 		return $this->hasConfiguration( $id ) && is_array( $this->configuration[ $id ] );
 	}
 
+	/**
+	 * @param $localFile
+	 * @param $remotePath
+	 * @return array
+	 */
 	private function matchAssociativeElement( $localFile, $remotePath ) {
 
 		if ( is_integer( $localFile ) ) {
@@ -180,6 +182,10 @@ class SetupAfterCache {
 		return array( $localFile, $remotePath );
 	}
 
+	/**
+	 * @param string $file
+	 * @return string
+	 */
 	private function isReadableFile( $file ) {
 
 		if ( is_readable( $file ) ) {
@@ -187,6 +193,50 @@ class SetupAfterCache {
 		}
 
 		throw new RuntimeException( "Expected an accessible {$file} file" );
+	}
+
+	protected function addChameleonToVisualEditorSupportedSkins() {
+
+		// if Visual Editor is installed and there is a setting to enable or disable it
+		if ( $this->hasConfiguration( 'wgVisualEditorSupportedSkins' ) && $this->hasConfiguration( 'egChameleonEnableVisualEditor' ) ) {
+
+			// if VE should be enabled
+			if ( $this->configuration[ 'egChameleonEnableVisualEditor' ] === true ) {
+
+				// if Chameleon is not yet in the list of VE-enabled skins
+				if ( !in_array( 'chameleon', $this->configuration[ 'wgVisualEditorSupportedSkins' ] ) ) {
+					$this->configuration[ 'wgVisualEditorSupportedSkins' ][] = 'chameleon';
+				}
+
+			} else {
+				// remove all entries of Chameleon from the list of VE-enabled skins
+				$this->configuration[ 'wgVisualEditorSupportedSkins' ] = array_diff(
+					$this->configuration[ 'wgVisualEditorSupportedSkins' ],
+					array( 'chameleon' )
+				);
+			}
+		}
+	}
+
+	protected function addResourceModules() {
+		$this->configuration[ 'wgResourceModules' ][ 'skin.chameleon.jquery-sticky' ] = array(
+			'localBasePath'  => $this->configuration[ 'chameleonLocalPath' ] . '/resources/js',
+			'remoteBasePath' => $this->configuration[ 'chameleonRemotePath' ] . '/resources/js',
+			'group'          => 'skin.chameleon',
+			'skinScripts'    => array( 'chameleon' => array( 'jquery-sticky/jquery.sticky.js', 'Components/Modifications/sticky.js' ) )
+		);
+	}
+
+	protected function setLayoutFile() {
+
+		$layout = $this->request->getVal( 'uselayout' );
+
+		if ( $layout !== null &&
+			$this->hasConfigurationOfTypeArray( 'egChameleonAvailableLayoutFiles' ) &&
+			array_key_exists( $layout, $this->configuration[ 'egChameleonAvailableLayoutFiles' ] ) ) {
+
+			$this->configuration[ 'egChameleonLayoutFile' ] = $this->configuration[ 'egChameleonAvailableLayoutFiles' ][ $layout ];
+		}
 	}
 
 }

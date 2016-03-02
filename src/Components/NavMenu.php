@@ -4,7 +4,7 @@
  *
  * This file is part of the MediaWiki skin Chameleon.
  *
- * @copyright 2013 - 2014, Stephan Gambke
+ * @copyright 2013 - 2016, Stephan Gambke
  * @license   GNU General Public License, version 3 (or any later version)
  *
  * The Chameleon skin is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  * @file
- * @ingroup Skins
+ * @ingroup   Skins
  */
 
 namespace Skins\Chameleon\Components;
@@ -32,9 +32,8 @@ use Skins\Chameleon\IdRegistry;
 /**
  * The NavMenu class.
  *
- *
- * @author Stephan Gambke
- * @since 1.0
+ * @author  Stephan Gambke
+ * @since   1.0
  * @ingroup Skins
  */
 class NavMenu extends Component {
@@ -42,14 +41,14 @@ class NavMenu extends Component {
 	/**
 	 * Builds the HTML code for this component
 	 *
-	 * @return String the HTML code
+	 * @return string the HTML code
 	 */
 	public function getHtml() {
 
 		$ret = '';
 
 		$sidebar = $this->getSkinTemplate()->getSidebar( array(
-				'search' => false, 'toolbox' => false, 'languages' => false
+				'search' => false, 'toolbox' => $this->showTools(), 'languages' => $this->showLanguages()
 			)
 		);
 
@@ -64,94 +63,148 @@ class NavMenu extends Component {
 		}
 
 		// create a dropdown for each sidebar box
-		foreach ( $sidebar as $boxName => $box ) {
-
-			$ret .= $this->getDropdownForNavMenu( $boxName, $box, array_search( $boxName, $flatten ) !== false );
+		foreach ( $sidebar as $menuName => $menuDescription ) {
+			$ret .= $this->getDropdownForNavMenu( $menuName, $menuDescription, array_search( $menuName, $flatten ) !== false );
 		}
 
 		return $ret;
 	}
 
 	/**
+	 * @return bool
+	 */
+	private function showLanguages() {
+		return $this->getDomElement() !== null && filter_var( $this->getDomElement()->getAttribute( 'showLanguages' ), FILTER_VALIDATE_BOOLEAN );
+	}
+
+	/**
+	 * @return bool
+	 */
+	private function showTools() {
+		return $this->getDomElement() !== null && filter_var( $this->getDomElement()->getAttribute( 'showTools' ), FILTER_VALIDATE_BOOLEAN );
+	}
+
+	/**
 	 * Create a single dropdown
 	 *
-	 * @param string $boxName
-	 * @param array  $box
-	 * @param bool   $flatten
+	 * @param string  $menuName
+	 * @param mixed[] $menuDescription
+	 * @param bool    $flatten
 	 *
 	 * @return string
 	 */
-	protected function getDropdownForNavMenu( $boxName, $box, $flatten = false ) {
+	protected function getDropdownForNavMenu( $menuName, $menuDescription, $flatten = false ) {
 
 		// open list item containing the dropdown
-		$ret = $this->indent() . '<!-- ' . $boxName . ' -->';
-
-		$menuitems = '';
-
-		// build the list of submenu items
-		if ( is_array( $box[ 'content' ] ) && count( $box[ 'content' ] ) > 0 ) {
-
-			$this->indent( $flatten ? 0 : 2 );
-
-			foreach ( $box[ 'content' ] as $key => $item ) {
-				$menuitems .= $this->indent() . $this->getSkinTemplate()->makeListItem( $key, $item );
-			}
-
-			$this->indent( $flatten ? 0 : -2 );
-
-		} else {
-			$menuitems .= $this->indent() . '<!-- empty -->';
-		}
+		$ret = $this->indent() . '<!-- ' . $menuName . ' -->';
 
 		if ( $flatten ) {
-			// if the menu is to be flattened, just return the introducing comment and the list of menu items as is
 
-			$ret .= $menuitems;
+			$ret .= $this->buildMenuItemsForDropdownMenu( $menuDescription );
 
-		} elseif ( !is_array( $box[ 'content' ] ) || count( $box[ 'content' ] ) === 0 ) {
-			//if the menu is not to be flattened, but is empty, return an inert link
+		} elseif ( !$this->hasSubmenuItems( $menuDescription ) ) {
 
-			$ret .= $this->indent() . \Html::rawElement( 'li',
-					array(
-						'class' => '',
-						'title' => Linker::titleAttrib( $box[ 'id' ] )
-					),
-					'<a href="#">' . htmlspecialchars( $box[ 'header' ] ) . '</a>'
-				);
+			$ret .= $this->buildDropdownMenuStub( $menuDescription );
 
 		} else {
 
-			// open list item containing the dropdown
-			$ret .= $this->indent() . \Html::openElement( 'li',
-					array(
-						'class' => 'dropdown',
-						'title' => Linker::titleAttrib( $box[ 'id' ] )
-					)
-				);
+			$ret .= $this->buildDropdownOpeningTags( $menuDescription )
+				. $this->buildMenuItemsForDropdownMenu( $menuDescription, 2 )
+				. $this->buildDropdownClosingTags();
 
-			// add the dropdown toggle
-			$ret .= $this->indent( 1 ) . '<a href="#" class="dropdown-toggle" data-toggle="dropdown">' .
-				htmlspecialchars( $box[ 'header' ] ) . ' <b class="caret"></b></a>';
 
-			// open list of dropdown menu items
-			$ret .= $this->indent() .
-				$this->indent() . \Html::openElement( 'ul',
-					array(
-						'class' => 'dropdown-menu ' . $box[ 'id' ],
-						'id'    => IdRegistry::getRegistry()->getId( $box[ 'id' ] ),
-					)
-				);
-
-			// add list of menu items
-			$ret .= $menuitems;
-
-			// close list of dropdown menu items and the list item containing the dropdown
-			$ret .=
-				$this->indent() . '</ul>' .
-				$this->indent( -1 ) . '</li>';
 		}
 
 		return $ret;
+	}
+
+	/**
+	 * @param mixed[] $menuDescription
+	 * @param int     $indent
+	 *
+	 * @return string
+	 */
+	protected function buildMenuItemsForDropdownMenu( $menuDescription, $indent = 0 ) {
+
+		// build the list of submenu items
+		if ( $this->hasSubmenuItems( $menuDescription ) ) {
+
+			$menuitems = '';
+			$this->indent( $indent );
+
+			foreach ( $menuDescription[ 'content' ] as $key => $item ) {
+				$menuitems .= $this->indent() . $this->getSkinTemplate()->makeListItem( $key, $item );
+			}
+
+			$this->indent( -$indent );
+			return $menuitems;
+
+		} else {
+			return $this->indent() . '<!-- empty -->';
+		}
+	}
+
+	/**
+	 * @param mixed[] $menuDescription
+	 *
+	 * @return bool
+	 */
+	protected function hasSubmenuItems( $menuDescription ) {
+		return is_array( $menuDescription[ 'content' ] ) && count( $menuDescription[ 'content' ] ) > 0;
+	}
+
+	/**
+	 * @param mixed[] $menuDescription
+	 *
+	 * @return string
+	 */
+	protected function buildDropdownMenuStub( $menuDescription ) {
+		return
+			$this->indent() . \Html::rawElement( 'li',
+				array(
+					'class' => '',
+					'title' => Linker::titleAttrib( $menuDescription[ 'id' ] )
+				),
+				'<a href="#">' . htmlspecialchars( $menuDescription[ 'header' ] ) . '</a>'
+			);
+	}
+
+	/**
+	 * @param mixed[] $menuDescription
+	 *
+	 * @return string
+	 */
+	protected function buildDropdownOpeningTags( $menuDescription ) {
+		// open list item containing the dropdown
+		$ret = $this->indent() . \Html::openElement( 'li',
+				array(
+					'class' => 'dropdown',
+					'title' => Linker::titleAttrib( $menuDescription[ 'id' ] )
+				)
+			);
+
+		// add the dropdown toggle
+		$ret .= $this->indent( 1 ) . '<a href="#" class="dropdown-toggle" data-toggle="dropdown">' .
+			htmlspecialchars( $menuDescription[ 'header' ] ) . ' <b class="caret"></b></a>';
+
+		// open list of dropdown menu items
+		$ret .= $this->indent() .
+			$this->indent() . \Html::openElement( 'ul',
+				array(
+					'class' => 'dropdown-menu ' . $menuDescription[ 'id' ],
+					'id'    => IdRegistry::getRegistry()->getId( $menuDescription[ 'id' ] ),
+				)
+			);
+		return $ret;
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function buildDropdownClosingTags() {
+		return
+			$this->indent() . '</ul>' .
+			$this->indent( -1 ) . '</li>';
 	}
 
 }

@@ -60,6 +60,7 @@ class MainContent extends Component {
 			) .
 
 			$idRegistry->element( 'a', array( 'id' => 'top' ) ) .
+			$this->indent(1) . $idRegistry->element( 'div', array( 'id' => 'mw-indicators', 'class' => 'mw-indicators',  ), $this->buildMwIndicators() ) .
 
 			$this->indent() . '<div ' . \Html::expandAttributes( array(
 					'id'    => $idRegistry->getId( 'mw-js-message' ),
@@ -67,12 +68,28 @@ class MainContent extends Component {
 				)
 			) . $skintemplate->get( 'userlangattributes' ) . '></div>';
 
+		$ret .= $this->buildContentHeader();
+		$ret .= $this->buildContentBody();
+		$ret .= $this->buildCategoryLinks();
 
-		// START contentHeader
-		$ret .=	$this->indent( 1 ) . '<div class ="contentHeader">' .
+		$ret .= $this->indent( -1 ) . '</div>';
+		// END content
+
+		return $ret;
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function buildContentHeader() {
+
+		$skintemplate = $this->getSkinTemplate();
+		$idRegistry = IdRegistry::getRegistry();
+
+		$ret = $this->indent() . '<div class ="contentHeader">' .
 
 			$this->indent( 1 ) . '<!-- title of the page -->' .
-			$this->indent() . $idRegistry->element('h1', array( 'id' => 'firstHeading','class'=>'firstHeading') , $skintemplate->get( 'title' ) ) .
+			$this->indent() . $idRegistry->element( 'h1', array( 'id' => 'firstHeading', 'class' => 'firstHeading' ), $skintemplate->get( 'title' ) ) .
 
 			$this->indent() . '<!-- tagline; usually goes something like "From WikiName" primary purpose of this seems to be for printing to identify the source of the content -->' .
 			$this->indent() . $idRegistry->element( 'div', array( 'id'=> 'siteSub' ), $skintemplate->getMsg( 'tagline' )->escaped() );
@@ -94,38 +111,90 @@ class MainContent extends Component {
 		}
 
 		// TODO: Do we need this? Seems to be an accessibility thing. It's used in vector to jump to the nav wich is at the bottom of the document, but our nav is usually at the top
-		$ret .= $idRegistry->element( 'div', array(	'id' => 'jump-to-nav', 'class' => 'mw-jump'	),
+		$ret .= $idRegistry->element( 'div', array( 'id' => 'jump-to-nav', 'class' => 'mw-jump' ),
 			$skintemplate->getMsg( 'jumpto' )->escaped() . '<a href="#mw-navigation">' . $skintemplate->getMsg( 'jumptonavigation' )->escaped() . '</a>' .
 			$skintemplate->getMsg( 'comma-separator' )->escaped() . '<a href="#p-search">' . $skintemplate->getMsg( 'jumptosearch' )->escaped() . '</a>'
 		);
 
 		$ret .= $this->indent( -1 ) . '</div>';
-		// END contentHeader
+		return $ret;
+	}
 
-
-		// START content body
-		$ret .= $idRegistry->element( 'div', array( 'id' => 'bodyContent' ),
-			$this->indent() . '<!-- body text -->' . "\n" .
-			$this->indent() . $skintemplate->get( 'bodytext' )
+	/**
+	 * @return string
+	 */
+	protected function buildContentBody() {
+		return $this->indent() . IdRegistry::getRegistry()->element( 'div', array( 'id' => 'bodyContent' ),
+			$this->indent( 1 ) . '<!-- body text -->' . "\n" .
+			$this->indent() . $this->getSkinTemplate()->get( 'bodytext' ) .
+			$this->indent() . '<!-- end body text -->' .
+			$this->buildDataAfterContent() .
+			$this->indent( -1 )
 		);
-		// END content body
+	}
 
+	/**
+	 * @return string
+	 */
+	protected function buildCategoryLinks() {
 		// TODO: Category links should be a separate component, but
 		// * dataAfterContent should come after the the category links.
 		// * only one extension is known to use it dataAfterContent and it is geared specifically towards MonoBook
 		// => provide an attribut hideCatLinks for the XML and -if present- hide category links and assume somebody knows what they are doing
-		$ret .= $this->indent() . '<!-- category links -->' .
-				$this->indent() . $skintemplate->get( 'catlinks' );
+		return
+			$this->indent() . '<!-- category links -->' .
+			$this->indent() . $this->getSkinTemplate()->get( 'catlinks' );
+	}
 
+	/**
+	 * @return string
+	 */
+	protected function buildDataAfterContent() {
 
-		if ( $skintemplate->get( 'dataAfterContent' ) ) {
-			$ret .= $this->indent() . '<!-- data blocks which should go somewhere after the body text, but not before the catlinks block-->' .
-					$this->indent() . $skintemplate->get( 'dataAfterContent' );
+		$skinTemplate = $this->getSkinTemplate();
+
+		if ( $skinTemplate->get( 'dataAfterContent' ) ) {
+			return
+				$this->indent() . '<!-- data blocks which should go somewhere after the body text, but not before the catlinks block-->' .
+				$this->indent() . $skinTemplate->get( 'dataAfterContent' );
 		}
 
-		$ret .= $this->indent( -1 ) . '</div>' . "\n";
-		// END content
+		return '';
+	}
+
+	/**
+	 * @return string
+	 */
+	private function buildMwIndicators() {
+
+		$idRegistry = IdRegistry::getRegistry();
+		$indicators = $this->getSkinTemplate()->get( 'indicators' );
+
+		if ( !is_array( $indicators ) || count( $indicators ) === 0 ) {
+			return '';
+		}
+
+		$this->indent( 1 );
+
+		$ret = '';
+
+		foreach ( $indicators as $id => $content ) {
+			$id = \Sanitizer::escapeId( "mw-indicator-$id" );
+
+			$ret .=
+				$this->indent() .
+				$idRegistry->element( 'div',
+					array(
+						'id' => $id,
+						'class' => "mw-indicator $id",
+					),
+					$content
+				);
+		}
+
+		$ret .= $this->indent( -1 );
 
 		return $ret;
 	}
+
 }
